@@ -9,6 +9,7 @@ version: "3.1"
 services:
   web:
     profiles: ["ol-web1", "ol-web2"]
+    image: "${OLIMAGE:-openlibrary/olbase:latest}"
     restart: always
     hostname: "$HOSTNAME"
     environment:
@@ -26,6 +27,7 @@ services:
 
   covers:
     profiles: ["ol-covers0"]
+    image: "${OLIMAGE:-openlibrary/olbase:latest}"
     restart: always
     hostname: "$HOSTNAME"
     environment:
@@ -69,11 +71,8 @@ services:
 
   cron-jobs:
     profiles: ["ol-home0"]
-    image: "oldev:${OLDEV_TAG:-latest}"
+    image: "${OLIMAGE:-openlibrary/olbase:latest}"
     hostname: "$HOSTNAME"
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.oldev
     user: root
     command: cron -f
     restart: always
@@ -89,6 +88,7 @@ services:
 
   infobase:
     profiles: ["ol-home0"]
+    image: "${OLIMAGE:-openlibrary/olbase:latest}"
     restart: always
     hostname: "$HOSTNAME"
     environment:
@@ -119,14 +119,11 @@ services:
 
   affiliate-server:
     profiles: ["ol-home0"]
+    image: "${OLIMAGE:-openlibrary/olbase:latest}"
     restart: always
     hostname: "$HOSTNAME"
     environment:
       - AFFILIATE_CONFIG=/openlibrary.yml
-    image: "oldev:${OLDEV_TAG:-latest}"
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.oldev
     command: docker/ol-affiliate-server-start.sh
     ports:
       - 31337:31337
@@ -141,6 +138,7 @@ services:
 
   solr-updater:
     profiles: ["ol-home0"]
+    image: "${OLIMAGE:-openlibrary/olbase:latest}"
     restart: always
     hostname: "$HOSTNAME"
     environment:
@@ -155,12 +153,31 @@ services:
     secrets:
       - ia_db_pw_file
 
+  # This will replace solr-updater once we fully migrate to solr8
+  solr8-updater:
+    profiles: ["ol-home0"]
+    image: "${OLIMAGE:-openlibrary/olbase:latest}"
+    restart: always
+    hostname: "$HOSTNAME"
+    environment:
+      - PYENV_VERSION=${PYENV_VERSION:-3.9.4}
+      - OL_CONFIG=/olsystem/etc/openlibrary.yml
+      - OL_URL=https://openlibrary.org/
+      - STATE_FILE=solr8-update.offset
+      - EXTRA_OPTS=--solr-url http://ol-solr1:8984/solr/openlibrary --initial-state '2021-04-12:0'
+    volumes:
+      - solr-updater-data:/solr-updater-data
+      - ../olsystem:/olsystem
+    secrets:
+      - ia_db_pw_file
+    command: docker/ol-solr-updater-start.sh
+    networks:
+      - webnet
+      - dbnet
+
   importbot:
     profiles: ["ol-home0"]
-    image: "oldev:${OLDEV_TAG:-latest}"
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.oldev
+    image: "${OLIMAGE:-openlibrary/olbase:latest}"
     command: docker/ol-importbot-start.sh
     restart: always
     hostname: "$HOSTNAME"
